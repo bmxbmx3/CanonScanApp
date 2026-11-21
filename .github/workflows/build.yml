@@ -64,16 +64,17 @@ jobs:
 
       - name: Export IPA (unsigned)
         run: |
-          mkdir -p build/ipa
-          # For sideloading, we extract the .app and repackage as .ipa
-          cp -r build/CanonScanApp.xcarchive/Products/Applications/CanonScanApp.app build/ipa/
-          mkdir -p build/ipa/Payload
-          mv build/ipa/CanonScanApp.app build/ipa/Payload/
-          cd build/ipa && zip -r ../CanonScanApp.ipa Payload/
+          # Find the .app inside the archive (location can vary)
+          APP_PATH=$(find build/CanonScanApp.xcarchive -name "*.app" -maxdepth 4 | head -1)
+          echo "Found app at: $APP_PATH"
+          mkdir -p build/Payload
+          cp -r "$APP_PATH" build/Payload/
+          cd build && zip -r CanonScanApp.ipa Payload/
 
       - name: Upload IPA
         uses: actions/upload-artifact@v4
         with:
           name: CanonScanApp-unsigned
           path: build/CanonScanApp.ipa
+          if-no-files-found: error
           retention-days: 7
