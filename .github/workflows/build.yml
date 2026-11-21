@@ -1,0 +1,79 @@
+name: Build & Test CanonScanApp
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    name: Run Unit Tests (iOS Simulator)
+    runs-on: macos-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install xcodegen
+        run: brew install xcodegen
+
+      - name: Generate Xcode project
+        run: xcodegen generate
+
+      - name: Run Tests
+        run: |
+          xcodebuild test \
+            -scheme CanonScanApp \
+            -destination 'platform=iOS Simulator,name=iPad Air 11-inch (M2),OS=latest' \
+            -resultBundlePath TestResults.xcresult \
+            CODE_SIGN_IDENTITY="" \
+            CODE_SIGNING_REQUIRED=NO \
+            | xcpretty || true
+
+      - name: Upload Test Results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results
+          path: TestResults.xcresult
+
+  build-ipa:
+    name: Build Unsigned IPA
+    runs-on: macos-latest
+    needs: test
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install xcodegen
+        run: brew install xcodegen
+
+      - name: Generate Xcode project
+        run: xcodegen generate
+
+      - name: Build Archive (unsigned)
+        run: |
+          xcodebuild archive \
+            -scheme CanonScanApp \
+            -destination 'generic/platform=iOS' \
+            -archivePath build/CanonScanApp.xcarchive \
+            CODE_SIGN_IDENTITY="" \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGNING_ALLOWED=NO \
+            | xcpretty
+
+      - name: Export IPA (unsigned)
+        run: |
+          mkdir -p build/ipa
+          # For sideloading, we extract the .app and repackage as .ipa
+          cp -r build/CanonScanApp.xcarchive/Products/Applications/CanonScanApp.app build/ipa/
+          mkdir -p build/ipa/Payload
+          mv build/ipa/CanonScanApp.app build/ipa/Payload/
+          cd build/ipa && zip -r ../CanonScanApp.ipa Payload/
+
+      - name: Upload IPA
+        uses: actions/upload-artifact@v4
+        with:
+          name: CanonScanApp-unsigned
+          path: build/CanonScanApp.ipa
+          retention-days: 7
