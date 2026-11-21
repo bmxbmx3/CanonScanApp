@@ -1,7 +1,7 @@
 import Foundation
 import Network
 
-struct DiscoveredScanner: Identifiable, Equatable {
+struct DiscoveredScanner: Identifiable, Equatable, Hashable {
     let id: UUID
     let name: String
     let host: String
